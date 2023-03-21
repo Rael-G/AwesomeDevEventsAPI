@@ -2,6 +2,7 @@
 using AwesomeWebEvents.API.Persistence;
 using Microsoft.AspNetCore.Http;
 using Microsoft.AspNetCore.Mvc;
+using Microsoft.EntityFrameworkCore;
 
 namespace AwesomeWebEvents.API.Controllers
 {
@@ -24,7 +25,10 @@ namespace AwesomeWebEvents.API.Controllers
         [HttpGet("{id}")]
         public IActionResult GetById(Guid id)
         {
-            var devEvent = _context.DevEvents.SingleOrDefault(d => d.Id == id);
+            var devEvent = _context.DevEvents
+                .Include(de => de.Speakers)
+                .SingleOrDefault(d => d.Id == id);
+
             if (devEvent == null)
             {
                 return NotFound();
@@ -35,6 +39,8 @@ namespace AwesomeWebEvents.API.Controllers
         public IActionResult Post(DevEvent devEvent)
         {
             _context.DevEvents.Add(devEvent);
+            _context.SaveChanges();
+
             return CreatedAtAction(nameof(GetById), new {id  = devEvent.Id}, devEvent);
         }
         [HttpPut("{id}")]
@@ -46,6 +52,9 @@ namespace AwesomeWebEvents.API.Controllers
                 return NotFound();
             }
             devEvent.update(input.Title, input.Description, input.StartDate, input.EndDate);
+
+            _context.DevEvents.Update(devEvent);
+            _context.SaveChanges(true);
             
             return NoContent();
         }
@@ -61,20 +70,24 @@ namespace AwesomeWebEvents.API.Controllers
 
             devEvent.Delete();
 
+            _context.SaveChanges();
+
             return NoContent();
         }
 
         [HttpPost("{id}/speakers")]
         public IActionResult PostSpeaker(Guid id, DevEventsSpeaker speaker)
         {
-            var devEvent = _context.DevEvents.SingleOrDefault(d => d.Id == id);
+            speaker.DevEventId = id;
+            var devEvent = _context.DevEvents.Any(d => d.Id == id);
 
-            if (devEvent == null)
+            if (!devEvent)
             {
                 return NotFound();
             }
 
-            devEvent.Speakers.Add(speaker);
+            _context.DevEventsSpeaker.Add(speaker);
+            _context.SaveChanges();
 
             return NoContent();
         }
